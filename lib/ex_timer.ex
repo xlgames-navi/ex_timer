@@ -134,16 +134,22 @@ defmodule ExTimer do
     elapsed_ticks = state.elapsed_ticks + delta_ms
     state = put_in(state.elapsed_ticks, elapsed_ticks)
 
-    {state, removed_timers} = reduce_expired(state.timers, {state, []})
+    if state.timers != [] do
+      {state, removed_timers} = reduce_expired(state.timers, {state, []})
 
-    state =
-      Enum.reduce(removed_timers, state, fn timer, state ->
-        {:noreply, state} = caller.handle_info(timer.msg, state)
+      reduced = state.timers
+
+      state =
+        Enum.reduce(removed_timers, state, fn timer, state ->
+          {:noreply, state} = caller.handle_info(timer.msg, state)
+          state
+        end)
+
+      if reduced == [] or state.elapsed_ticks > @int_max do
+        adjust(state)
+      else
         state
-      end)
-
-    if state.timers == [] or state.elapsed_ticks + delta_ms > @int_max do
-      adjust(state)
+      end
     else
       state
     end
